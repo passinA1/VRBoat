@@ -1,0 +1,27 @@
+﻿注意：开发需要用的预制体都可以在SampleScene里预览，具体内容如下，其他小部件是某些prefab整体的一部分，不需要开发同学调整；Old文件夹内是弃用方案
+
+Boat：船体
+    -SM_Veh_BoatHead：船体部件，不需要处理
+    -FX：下面两个子物体是移动时的雪花特效，可以在激活（SetActive(true)）后自动播放，不需要处理它的动画逻辑
+        -Fast：快速移动时的特效
+        -Slow：慢速移动时的特效
+
+Drumer：鼓手
+    -Drum：鼓身，不需要处理
+    -DrumerBody：鼓手身体
+    -DrumerHand R：鼓手右侧手和鼓槌，带有DrumerHand_Anim，需要调用以播放鼓手动画
+    -DrumerHand L：DrumerHand R的镜像物体（scale x=-1）
+    
+Rower：划船NPC
+    -RowerBody：船员身体
+    -RowerHand R：船员右侧手和桨，带有RowerHand_Anim，需要调用以播放NPC划船动画
+    -RowerHand L：RowerHand R的镜像物体（scale x=-1）
+    
+Env文件夹：程序只需要使用下面列出的预制体，其他不需要调用或改动（如果不动态加载地图，程序不需要用这部分）
+	Trees-Tress 1
+	Trees-Tress 2
+	Trees-Tress 3
+	Trees-Stone
+	Stone-Stone Door
+	Stone-Stone High
+	End Field
