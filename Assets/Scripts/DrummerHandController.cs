@@ -8,23 +8,34 @@ public class DrummerHandController : MonoBehaviour
     private Coroutine currentIdleRoutine;
 
     [Header("动画状态设置")]
-    [SerializeField] private string idle1TriggerName = "DrumerHand_Idle1";  // 慢动作小幅度待机
-    [SerializeField] private string idle2TriggerName = "DrumerHand_Idle2";  // 节奏稍快待机
-    [SerializeField] private string play1TriggerName = "DrumerHand_Play1";  // 慢拍子(1s)
-    [SerializeField] private string play2TriggerName = "DrumerHand_Play2";  // 快拍子(0.5s)
+    [Tooltip("慢动作小幅度待机动画名称")]
+    [SerializeField] private string idle1StateName = "DrumerHand_Idle1";
+    [Tooltip("节奏稍快待机动画名称")]
+    [SerializeField] private string idle2StateName = "DrumerHand_Idle2";
+    [Tooltip("慢拍子动画名称(1s)")]
+    [SerializeField] private string play1StateName = "DrumerHand_Play1";
+    [Tooltip("快拍子动画名称(0.5s)")]
+    [SerializeField] private string play2StateName = "DrumerHand_Play2";
 
-    [Header("镜像设置")]
-    [SerializeField] private bool isLeftHand = false;  // 是否为左手
+    [Header("手部设置")]
+    [Tooltip("勾选表示这是左手控制器")]
+    [SerializeField] public bool isLeftHand = false;  // 修改为public，使其可以从外部访问
 
     private void Start()
     {
         animator = GetComponent<Animator>();
         
-        // 如果是左手，将X轴缩放设为-1来实现镜像
+        // 如果是左手，将X轴缩放设为负值（不是乘以-1）
         if (isLeftHand)
         {
             Vector3 scale = transform.localScale;
-            scale.x *= -1;
+            scale.x = -Mathf.Abs(scale.x);  // 确保X轴缩放为负值
+            transform.localScale = scale;
+        }
+        else
+        {
+            Vector3 scale = transform.localScale;
+            scale.x = Mathf.Abs(scale.x);   // 确保X轴缩放为正值
             transform.localScale = scale;
         }
 
@@ -35,30 +46,44 @@ public class DrummerHandController : MonoBehaviour
     // 准备动作处理
     public void PrepareLeft()
     {
-        if (isLeftHand) PrepareToPlay();
+        if (isLeftHand) 
+        {
+            // 添加调试输出
+            Debug.Log($"左手准备动作被触发 - isLeftHand: {isLeftHand}");
+            
+            if (currentIdleRoutine != null)
+            {
+                StopCoroutine(currentIdleRoutine);
+                currentIdleRoutine = null;
+            }
+            isPlaying = true;
+            animator.Play(play1StateName);
+        }
     }
 
     public void PrepareRight()
     {
-        if (!isLeftHand) PrepareToPlay();
+        if (!isLeftHand)
+        {
+            if (currentIdleRoutine != null)
+            {
+                StopCoroutine(currentIdleRoutine);
+                currentIdleRoutine = null;
+            }
+            isPlaying = true;
+            animator.Play(play1StateName);
+        }
     }
 
     public void PrepareBoth()
     {
-        PrepareToPlay();
-    }
-
-    private void PrepareToPlay()
-    {
-        // 停止当前的待机协程
         if (currentIdleRoutine != null)
         {
             StopCoroutine(currentIdleRoutine);
             currentIdleRoutine = null;
         }
-        
         isPlaying = true;
-        animator.SetTrigger(idle2TriggerName);  // 切换到节奏稍快的待机动画
+        animator.Play(play1StateName);
     }
 
     public void PlayBeatAnimation(RhythmGenerator.BeatInfo beatInfo)
@@ -71,11 +96,11 @@ public class DrummerHandController : MonoBehaviour
         if (!shouldPlay) return;
 
         // 根据节拍类型选择动画
-        string triggerName = beatInfo.type == RhythmGenerator.BeatType.Single 
-            ? play1TriggerName  // 慢拍子，1s完成
-            : play2TriggerName; // 快拍子，0.5s一次，共两次
+        string stateName = beatInfo.type == RhythmGenerator.BeatType.Single 
+            ? play1StateName  // 慢拍子，1s完成
+            : play2StateName; // 快拍子，0.5s一次，共两次
             
-        animator.SetTrigger(triggerName);
+        animator.Play(stateName);
 
         // 在动画播放后返回到合适的待机状态
         float waitTime = beatInfo.type == RhythmGenerator.BeatType.Single ? 1f : 1f;
@@ -93,12 +118,12 @@ public class DrummerHandController : MonoBehaviour
         if (!isPlaying)
         {
             // 如果不在演奏状态，返回到慢动作待机
-            animator.SetTrigger(idle1TriggerName);
+            animator.Play(idle1StateName);
         }
         else
         {
             // 如果在演奏状态，返回到节奏稍快的待机
-            animator.SetTrigger(idle2TriggerName);
+            animator.Play(idle2StateName);
         }
     }
 
@@ -106,6 +131,6 @@ public class DrummerHandController : MonoBehaviour
     {
         isPlaying = playing;
         // 根据演奏状态切换待机动画
-        animator.SetTrigger(playing ? idle2TriggerName : idle1TriggerName);
+        animator.Play(playing ? idle2StateName : idle1StateName);
     }
 }

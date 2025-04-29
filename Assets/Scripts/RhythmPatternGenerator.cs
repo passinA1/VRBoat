@@ -22,17 +22,29 @@ public class RhythmPatternGenerator : MonoBehaviour
 
     [Header("引用")]
     public RhythmGameManager gameManager;
-    public DrummerHandController drummerController; // 鼓手控制器
+    public DrummerHandController leftHandController;  // 左手控制器
+    public DrummerHandController rightHandController; // 右手控制器
     public Animator[] npcAnimators;
 
     private RhythmGenerator rhythmGenerator;
 
     private void Start()
     {
-        // 自动查找鼓手控制器（如果未指定）
-        if (drummerController == null)
+        // 自动查找手部控制器（如果未指定）
+        if (leftHandController == null || rightHandController == null)
         {
-            drummerController = FindObjectOfType<DrummerHandController>();
+            var controllers = FindObjectsOfType<DrummerHandController>();
+            foreach (var controller in controllers)
+            {
+                if (controller.isLeftHand)  // 直接访问public属性
+                {
+                    leftHandController = controller;
+                }
+                else
+                {
+                    rightHandController = controller;
+                }
+            }
         }
         
         StartCoroutine(GenerateRhythmPattern());
@@ -44,10 +56,13 @@ public class RhythmPatternGenerator : MonoBehaviour
         
         while (isGenerating)
         {
-            // 随机生成一种鼓点类型
+            // 随机选择一个节奏模式
             DrumPattern pattern = (DrumPattern)Random.Range(0, System.Enum.GetValues(typeof(DrumPattern)).Length);
             
-            // 生成节奏信息
+            // 在控制台输出当前生成的节奏类型
+            Debug.Log($"生成节奏类型: {pattern}");
+            
+            // 根据模式生成节拍信息
             RhythmGenerator.BeatInfo beatInfo = new RhythmGenerator.BeatInfo
             {
                 hand = GetHandTypeFromPattern(pattern),
@@ -55,36 +70,57 @@ public class RhythmPatternGenerator : MonoBehaviour
             };
 
             // 触发预备动画
-            if (drummerController != null)
+            switch (beatInfo.hand)
             {
-                // 提前0.5秒做准备动作
-                switch (beatInfo.hand)
-                {
-                    case RhythmGenerator.HandType.Left:
-                        drummerController.PrepareLeft();
-                        break;
-                    case RhythmGenerator.HandType.Right:
-                        drummerController.PrepareRight();
-                        break;
-                    case RhythmGenerator.HandType.Both:
-                        drummerController.PrepareBoth();
-                        break;
-                }
-                
-                // NPC也做出预备动作
-                foreach (var npcAnimator in npcAnimators)
-                {
-                    if (npcAnimator != null)
+                case RhythmGenerator.HandType.Left:
+                    if (leftHandController != null)
                     {
-                        npcAnimator.SetTrigger("Prepare");
+                        leftHandController.PrepareLeft();
+                        Debug.Log("触发左手准备动作");
                     }
+                    break;
+                case RhythmGenerator.HandType.Right:
+                    if (rightHandController != null)
+                    {
+                        rightHandController.PrepareRight();
+                        Debug.Log("触发右手准备动作");
+                    }
+                    break;
+                case RhythmGenerator.HandType.Both:
+                    if (leftHandController != null && rightHandController != null)
+                    {
+                        leftHandController.PrepareBoth();
+                        rightHandController.PrepareBoth();
+                        Debug.Log("触发双手准备动作");
+                    }
+                    break;
+            }
+
+            // NPC也做出预备动作
+            foreach (var npcAnimator in npcAnimators)
+            {
+                if (npcAnimator != null)
+                {
+                    npcAnimator.SetTrigger("Prepare");
                 }
-                
-                // 等待准备动作完成
-                yield return new WaitForSeconds(0.5f);
-                
-                // 播放击打动画
-                drummerController.PlayBeatAnimation(beatInfo);
+            }
+
+            // 等待准备动作完成
+            yield return new WaitForSeconds(0.5f);
+
+            // 播放击打动画
+            if (beatInfo.hand == RhythmGenerator.HandType.Left && leftHandController != null)
+            {
+                leftHandController.PlayBeatAnimation(beatInfo);
+            }
+            else if (beatInfo.hand == RhythmGenerator.HandType.Right && rightHandController != null)
+            {
+                rightHandController.PlayBeatAnimation(beatInfo);
+            }
+            else if (beatInfo.hand == RhythmGenerator.HandType.Both)
+            {
+                if (leftHandController != null) leftHandController.PlayBeatAnimation(beatInfo);
+                if (rightHandController != null) rightHandController.PlayBeatAnimation(beatInfo);
             }
 
             // 通知游戏管理器生成新的节拍
