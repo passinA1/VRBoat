@@ -25,6 +25,7 @@ public class RhythmPatternGenerator : MonoBehaviour
     public DrummerHandController leftHandController;  // 左手控制器
     public DrummerHandController rightHandController; // 右手控制器
     public Animator[] npcAnimators;
+    public NPCController[] npcControllers;  // 添加NPC控制器数组
 
     private RhythmGenerator rhythmGenerator;
 
@@ -78,12 +79,28 @@ public class RhythmPatternGenerator : MonoBehaviour
                         leftHandController.PrepareLeft();
                         Debug.Log("触发左手准备动作");
                     }
+                    // 触发NPC左手准备动作
+                    foreach (var npcController in npcControllers)
+                    {
+                        if (npcController != null)
+                        {
+                            npcController.PrepareLeft();
+                        }
+                    }
                     break;
                 case RhythmGenerator.HandType.Right:
                     if (rightHandController != null)
                     {
                         rightHandController.PrepareRight();
                         Debug.Log("触发右手准备动作");
+                    }
+                    // 触发NPC右手准备动作
+                    foreach (var npcController in npcControllers)
+                    {
+                        if (npcController != null)
+                        {
+                            npcController.PrepareRight();
+                        }
                     }
                     break;
                 case RhythmGenerator.HandType.Both:
@@ -92,6 +109,14 @@ public class RhythmPatternGenerator : MonoBehaviour
                         leftHandController.PrepareBoth();
                         rightHandController.PrepareBoth();
                         Debug.Log("触发双手准备动作");
+                    }
+                    // 触发NPC双手准备动作
+                    foreach (var npcController in npcControllers)
+                    {
+                        if (npcController != null)
+                        {
+                            npcController.PrepareBoth();
+                        }
                     }
                     break;
             }
@@ -112,15 +137,39 @@ public class RhythmPatternGenerator : MonoBehaviour
             if (beatInfo.hand == RhythmGenerator.HandType.Left && leftHandController != null)
             {
                 leftHandController.PlayBeatAnimation(beatInfo);
+                // 触发NPC左手划船动作
+                foreach (var npcController in npcControllers)
+                {
+                    if (npcController != null)
+                    {
+                        npcController.PlayRowAnimation(beatInfo);
+                    }
+                }
             }
             else if (beatInfo.hand == RhythmGenerator.HandType.Right && rightHandController != null)
             {
                 rightHandController.PlayBeatAnimation(beatInfo);
+                // 触发NPC右手划船动作
+                foreach (var npcController in npcControllers)
+                {
+                    if (npcController != null)
+                    {
+                        npcController.PlayRowAnimation(beatInfo);
+                    }
+                }
             }
             else if (beatInfo.hand == RhythmGenerator.HandType.Both)
             {
                 if (leftHandController != null) leftHandController.PlayBeatAnimation(beatInfo);
                 if (rightHandController != null) rightHandController.PlayBeatAnimation(beatInfo);
+                // 触发NPC双手划船动作
+                foreach (var npcController in npcControllers)
+                {
+                    if (npcController != null)
+                    {
+                        npcController.PlayRowAnimation(beatInfo);
+                    }
+                }
             }
 
             // 通知游戏管理器生成新的节拍
