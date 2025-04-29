@@ -162,7 +162,7 @@ public class StageManager : MonoBehaviour
             // ÏÔÊ¾ÆìÖÄÅĞ¶¨µã
             if (uiManager != null)
             {
-                uiManager.SetFlagMarkersVisible(true);
+                //uiManager.SetFlagMarkersVisible(true);
             }
         }
         else if (currentStage == 4)

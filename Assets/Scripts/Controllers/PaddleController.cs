@@ -197,7 +197,7 @@ public class PaddleController : MonoBehaviour
     // 触发双桨同步事件
     private void TriggerSyncPaddle(bool isPerfect = false)
     {
-        Debug.Log("触发双桨同步!");
+        //Debug.Log("触发双桨同步!");
 
         // 触发同步划桨事件，强度为2.5，提供更强的推动力
         float strength = isPerfect ? 3.0f : 2.5f;

@@ -23,6 +23,7 @@ public class UIManager : MonoBehaviour
     public GameObject[] stageIcons;
 
     [Header("游戏菜单")]
+    public GameObject inGamePanel;
     public GameObject pauseMenu;
     public GameObject gameOverMenu;
     public GameObject optionsMenu;
@@ -113,14 +114,15 @@ public class UIManager : MonoBehaviour
         // 更新分数
         if (scoreText != null && scoreSystem != null)
         {
-            scoreText.text = "分数: " + scoreSystem.GetScore().ToString();
+            scoreText.text = "Score: " + scoreSystem.GetScore().ToString();
         }
+        else Debug.Log("score system is null");
 
         // 更新连击
         if (comboText != null && scoreSystem != null)
         {
             int combo = scoreSystem.comboCount;
-            comboText.text = "连击: " + combo.ToString();
+            comboText.text = "Combo: " + combo.ToString();
 
             // 根据连击数改变颜色
             if (combo >= scoreSystem.comboThreshold)
@@ -135,7 +137,7 @@ public class UIManager : MonoBehaviour
         if (speedText != null && boatMovement != null)
         {
             float speed = boatMovement.GetCurrentSpeed();
-            speedText.text = "速度: " + speed.ToString("F1") + " m/s";
+            speedText.text = "Speed: " + speed.ToString("F1") + " m/s";
 
             // 根据速度改变颜色
             if (speed >= boatMovement.maxSpeed * 0.9f)
@@ -271,6 +273,11 @@ public class UIManager : MonoBehaviour
     // 显示游戏结束菜单
     public void ShowGameOverMenu(bool show)
     {
+        if (inGamePanel != null)
+        {
+            inGamePanel.SetActive(!show);
+            Debug.Log("in game UI set " + !show);
+        }
         if (gameOverMenu != null)
         {
             gameOverMenu.SetActive(show);
@@ -283,27 +290,30 @@ public class UIManager : MonoBehaviour
                 {
                     if (text.name.Contains("ScoreText"))
                     {
-                        text.text = "最终得分: " + scoreSystem.GetScore().ToString();
+                        text.text = "Your Score: " + scoreSystem.GetScore().ToString();
                     }
                     else if (text.name.Contains("ComboText"))
                     {
-                        text.text = "最高连击: " + scoreSystem.GetHighestCombo().ToString();
+                        text.text = "Max Combo: " + scoreSystem.GetHighestCombo().ToString();
                     }
                     else if (text.name.Contains("TimeText") && gameManager != null)
                     {
                         float time = gameManager.gameTimer;
                         int minutes = Mathf.FloorToInt(time / 60f);
                         int seconds = Mathf.FloorToInt(time % 60f);
-                        text.text = "完成时间: " + string.Format("{0:00}:{1:00}", minutes, seconds);
+                        text.text = "Finished Time: " + string.Format("{0:00}:{1:00}", minutes, seconds);
                     }
                 }
             }
+            else Debug.Log("show is " + show + ", scoreSystem is " + scoreSystem);
         }
     }
 
     // 隐藏所有菜单
     public void HideAllMenus()
-    {
+    {   
+
+
         if (pauseMenu != null) pauseMenu.SetActive(false);
         if (gameOverMenu != null) gameOverMenu.SetActive(false);
         if (optionsMenu != null) optionsMenu.SetActive(false);

@@ -45,13 +45,31 @@ public class DragonBoatMovement : MonoBehaviour
 
     // 事件系统引用
     private GameManager gameManager;
+
     private UIManager uiManager;
+    private ScoreSystem scoreSystem;
 
     void Start()
     {
         // 获取引用
         gameManager = FindObjectOfType<GameManager>();
+        if(gameManager == null)
+        {
+            Debug.Log("gameManager is null");
+        }
         uiManager = FindObjectOfType<UIManager>();
+        if(uiManager == null)
+        {
+            Debug.Log("ui manager is null");
+        }
+
+        scoreSystem = FindObjectOfType<ScoreSystem>();
+        if(scoreSystem == null)
+        {
+            Debug.Log("score system is null");
+        }
+
+        victoryScreen = uiManager.gameOverMenu;
 
         // 保存初始位置和旋转
         initialPosition = transform.position;
@@ -64,7 +82,7 @@ public class DragonBoatMovement : MonoBehaviour
         if (trackEnd != null)
             totalDistance = trackEnd.position.z - transform.position.z;
         else
-            totalDistance = 100f; // 默认距离
+            totalDistance = 1000f; // 默认距离
 
         // 隐藏胜利画面
         if (victoryScreen != null)
@@ -144,7 +162,9 @@ public class DragonBoatMovement : MonoBehaviour
         {
             currentSpeed = Mathf.Min(currentSpeed + (baseForwardForce * Time.deltaTime * 2), maxSpeed);
             if (debugMode)
-                Debug.Log($"手动加速，当前速度: {currentSpeed:F2}m/s");
+            {
+                //Debug.Log($"手动加速，当前速度: {currentSpeed:F2}m/s");
+            }
         }
 
         // 手动减速
@@ -152,7 +172,9 @@ public class DragonBoatMovement : MonoBehaviour
         {
             currentSpeed = Mathf.Max(currentSpeed - (baseForwardForce * Time.deltaTime * 2), minSpeed);
             if (debugMode)
-                Debug.Log($"手动减速，当前速度: {currentSpeed:F2}m/s");
+            { 
+            //Debug.Log($"手动减速，当前速度: {currentSpeed:F2}m/s");
+            }
         }
 
         // 重置船位置
@@ -296,16 +318,23 @@ public class DragonBoatMovement : MonoBehaviour
 
     void CompleteRace()
     {
+        //uiManager.HideAllMenus();
         // 显示胜利画面
         if (victoryScreen != null)
+        {
             victoryScreen.SetActive(true);
+            Debug.Log("victory screen set true");
+        }
+            
 
         Debug.Log("比赛完成！行程: " + distanceTraveled.ToString("F1") + " / " + totalDistance.ToString("F1"));
 
         // 通知游戏管理器
         if (gameManager != null)
         {
-            gameManager.OnLevelCompleted(Mathf.RoundToInt(distanceTraveled));
+            gameManager.TogglePause();
+            gameManager.OnLevelCompleted(scoreSystem.GetScore());
+            Debug.Log("game manager set pause");
         }
     }
 
