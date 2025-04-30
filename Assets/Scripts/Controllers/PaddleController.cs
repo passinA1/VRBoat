@@ -1,8 +1,11 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using System.Collections;
 using UnityEngine.XR;
 using System.Collections.Generic;
+using UnityEngine.XR.Interaction.Toolkit;
 
+[RequireComponent(typeof(PlayerInput))]
 public class PaddleController : MonoBehaviour
 {
     [Header("桨设置")]
@@ -13,6 +16,26 @@ public class PaddleController : MonoBehaviour
     public float paddleAnimSpeed = 7f; // 划桨动画速度
     public float paddleRecoveryTime = 0.1f; // 桨恢复时间
 
+    [Header("手柄输入设置")]
+    public float velocityThreshold = 1.5f; // 触发划桨的最小速度(m/s)
+    public float cooldownTime = 0.3f; // 划桨冷却时间
+    // 输入系统相关
+    private PlayerInput playerInput;
+    private InputAction leftPaddleAction;
+    private InputAction rightPaddleAction;
+    private InputAction syncPaddleAction;
+
+    // 手柄速度检测
+    private Vector3 leftControllerLastPos;
+    private Vector3 rightControllerLastPos;
+    private Vector3 leftControllerVelocity;
+    private Vector3 rightControllerVelocity;
+
+    // 手柄引用
+    private ActionBasedController leftController;
+    private ActionBasedController rightController;
+
+
     [Header("节奏判定设置")]
     public float perfectTiming = 0.1f; // 完美判定窗口(秒)
     public float goodTiming = 0.3f; // 良好判定窗口(秒)
@@ -22,10 +45,10 @@ public class PaddleController : MonoBehaviour
 
     [Header("模拟测试设置")]
     public bool forceKeyboardMode = true; // 强制使用键盘模式（用于测试）
-    public KeyCode leftPaddleKey = KeyCode.Q;
+    /*public KeyCode leftPaddleKey = KeyCode.Q;
     public KeyCode rightPaddleKey = KeyCode.E;
     public KeyCode syncPaddleKey = KeyCode.Space;
-    public KeyCode perfectPaddleKey = KeyCode.LeftShift; // 模拟完美划桨的按键
+    public KeyCode perfectPaddleKey = KeyCode.LeftShift; // 模拟完美划桨的按键*/
 
     [Header("调试选项")]
     public bool showDebugInfo = true; // 显示调试信息
@@ -50,6 +73,7 @@ public class PaddleController : MonoBehaviour
     private float lastLeftPaddleTime = -1f;
     private float lastRightPaddleTime = -1f;
 
+
     // 划桨状态
     private enum PaddleState { Ready, Forward, Backward, Recovering }
     private PaddleState leftPaddleState = PaddleState.Ready;
@@ -58,7 +82,8 @@ public class PaddleController : MonoBehaviour
     // 引用反馈系统
     private FeedbackSystem feedbackSystem;
     private ScoreSystem scoreSystem;
-
+    
+   
     void Start()
     {
         // 保存桨的初始位置
@@ -73,19 +98,15 @@ public class PaddleController : MonoBehaviour
         CheckVRAvailability();
 
         Debug.Log($"PaddleController初始化完成，当前模式: {(isVRMode && !forceKeyboardMode ? "VR" : "键盘")}");
+
+        // 初始化输入系统
+        InitializeInputSystem();
+        FindXRControllers();
+
     }
 
     void Update()
     {
-        // 如果强制键盘模式或者未检测到VR设备，使用键盘输入
-        if (forceKeyboardMode || !isVRMode)
-        {
-            HandleKeyboardInput();
-        }
-        else
-        {
-            HandleVRInput();
-        }
 
         // 显示调试信息
         if (showDebugInfo)
@@ -93,7 +114,186 @@ public class PaddleController : MonoBehaviour
             Debug.DrawRay(leftPaddle.position, Vector3.forward * 0.5f, Color.blue);
             Debug.DrawRay(rightPaddle.position, Vector3.forward * 0.5f, Color.red);
         }
+
+        CalculateControllerVelocity();
+        HandleAutomaticPaddleInput();
     }
+
+
+    #region 输入系统初始化
+    private void InitializeInputSystem()
+    {
+        playerInput = GetComponent<PlayerInput>();
+
+        // 创建输入Action引用
+        leftPaddleAction = playerInput.actions["LeftPaddle"];
+        rightPaddleAction = playerInput.actions["RightPaddle"];
+        syncPaddleAction = playerInput.actions["SyncPaddle"];
+
+        // 绑定输入事件
+        leftPaddleAction.started += ctx => OnPaddleInput(true);
+        rightPaddleAction.started += ctx => OnPaddleInput(false);
+        syncPaddleAction.started += ctx => OnSyncPaddleInput();
+    }
+
+    private void FindXRControllers()
+    {
+        var controllers = FindObjectsOfType<ActionBasedController>();
+        foreach (var controller in controllers)
+        {
+            if (controller.name.Contains("Left"))
+                leftController = controller;
+            else if (controller.name.Contains("Right"))
+                rightController = controller;
+        }
+    }
+    #endregion
+
+    #region 手柄速度计算
+    private void CalculateControllerVelocity()
+    {
+        if (leftController)
+        {
+            Vector3 currentPos = leftController.transform.position;
+            leftControllerVelocity = (currentPos - leftControllerLastPos) / Time.deltaTime;
+            leftControllerLastPos = currentPos;
+        }
+
+        if (rightController)
+        {
+            Vector3 currentPos = rightController.transform.position;
+            rightControllerVelocity = (currentPos - rightControllerLastPos) / Time.deltaTime;
+            rightControllerLastPos = currentPos;
+        }
+    }
+
+    private bool CheckSwingVelocity(bool isLeft)
+    {
+        if (isVRMode)
+        {
+            Vector3 velocity = isLeft ? leftControllerVelocity : rightControllerVelocity;
+
+            // 计算向前挥动的速度分量（假设向前是控制器的Z轴方向）
+            float forwardSpeed = Vector3.Dot(velocity, isLeft ?
+                leftController.transform.forward :
+                rightController.transform.forward);
+
+            return Mathf.Abs(forwardSpeed) > velocityThreshold;
+        }
+        return false;
+    }
+    #endregion
+
+
+    #region 输入处理
+    private void HandleAutomaticPaddleInput()
+    {
+        if (isVRMode)
+        {
+            // 自动检测左控制器挥动
+            if (CheckSwingVelocity(true))
+            {
+                Debug.Log("挥动左手柄");
+                OnPaddleInput(true);
+            }
+
+            // 自动检测右控制器挥动
+            if (CheckSwingVelocity(false))
+            {
+                Debug.Log("挥动右手柄");
+                OnPaddleInput(false);
+            }
+        }
+    }
+
+    private void OnPaddleInput(bool isLeft)
+    {
+        if ((isLeft && leftPaddleMoving) || (!isLeft && rightPaddleMoving))
+            return;
+
+        bool isPerfect = CheckPerfectTiming(isLeft); ;
+
+        // VR模式下检测完美时机
+        if (isVRMode)
+        {
+            isPerfect = CheckPerfectTiming(isLeft);
+        }
+        else // 键盘模式使用shift键
+        {
+            isPerfect = Keyboard.current.leftShiftKey.isPressed;
+        }
+
+        StartCoroutine(PaddleStroke(isLeft, isPerfect, GetPaddleStrength(isPerfect)));
+        UpdateLastPaddleTime(isLeft);
+        CheckSyncPaddle(isLeft);
+    }
+
+    private void UpdateLastPaddleTime(bool isLeft)
+    {
+        if (isLeft)
+        {
+            lastLeftPaddleTime = Time.time;
+        }
+        else
+        {
+            lastRightPaddleTime = Time.time;
+        }
+    }
+
+    private void CheckSyncPaddle(bool isLeft)
+    {
+        // 获取另一支桨的时间
+        float otherPaddleTime = isLeft ? lastRightPaddleTime : lastLeftPaddleTime;
+        float currentTime = Time.time;
+
+        // 检查是否在同步时间窗口内（0.2秒）
+        if (otherPaddleTime > 0 && Mathf.Abs(currentTime - otherPaddleTime) < 0.2f)
+        {
+            // 触发同步划桨
+            bool isPerfect = isVRMode ?
+                CheckBothPerfectTiming() :
+                Keyboard.current.leftShiftKey.isPressed;
+
+            TriggerSyncPaddle(isPerfect);
+
+            // 重置时间记录防止重复触发
+            lastLeftPaddleTime = -1f;
+            lastRightPaddleTime = -1f;
+        }
+    }
+
+    private void OnSyncPaddleInput()
+    {
+        if (!leftPaddleMoving && !rightPaddleMoving)
+        {
+            bool isPerfect = isVRMode ?
+                CheckBothPerfectTiming() :
+                Keyboard.current.leftShiftKey.isPressed;
+
+            StartCoroutine(SyncPaddleStroke(isPerfect));
+        }
+    }
+    #endregion
+
+    #region 节奏判定增强
+    private bool CheckPerfectTiming(bool isLeft)
+    {
+        if (!isVRMode) return false;
+
+        // 使用手柄加速度判断完美时机
+        Vector3 acceleration = isLeft ?
+            leftControllerVelocity / Time.deltaTime :
+            rightControllerVelocity / Time.deltaTime;
+
+        return acceleration.magnitude > velocityThreshold * 2f;
+    }
+
+    private bool CheckBothPerfectTiming()
+    {
+        return CheckPerfectTiming(true) && CheckPerfectTiming(false);
+    }
+    #endregion
+
 
     // 检测VR是否可用
     private void CheckVRAvailability()
@@ -121,61 +321,8 @@ public class PaddleController : MonoBehaviour
         Debug.Log("未检测到VR设备，使用键盘模拟模式");
     }
 
-    // 处理键盘输入（模拟VR）
-    private void HandleKeyboardInput()
-    {
-        // 左桨划动
-        if (Input.GetKeyDown(leftPaddleKey) && !leftPaddleMoving)
-        {
-            if (leftPaddleCoroutine != null)
-                StopCoroutine(leftPaddleCoroutine);
 
-            bool isPerfect = Input.GetKey(perfectPaddleKey);
-            float strength = GetPaddleStrength(isPerfect);
-            leftPaddleCoroutine = StartCoroutine(PaddleStroke(true, isPerfect, strength));
-            lastLeftPaddleTime = Time.time;
 
-            // 检查是否双桨同步 (0.2秒内)
-            if (lastRightPaddleTime > 0 && Time.time - lastRightPaddleTime < 0.2f)
-            {
-                TriggerSyncPaddle(isPerfect);
-            }
-        }
-
-        // 右桨划动
-        if (Input.GetKeyDown(rightPaddleKey) && !rightPaddleMoving)
-        {
-            if (rightPaddleCoroutine != null)
-                StopCoroutine(rightPaddleCoroutine);
-
-            bool isPerfect = Input.GetKey(perfectPaddleKey);
-            float strength = GetPaddleStrength(isPerfect);
-            rightPaddleCoroutine = StartCoroutine(PaddleStroke(false, isPerfect, strength));
-            lastRightPaddleTime = Time.time;
-
-            // 检查是否双桨同步 (0.2秒内)
-            if (lastLeftPaddleTime > 0 && Time.time - lastLeftPaddleTime < 0.2f)
-            {
-                TriggerSyncPaddle(isPerfect);
-            }
-        }
-
-        // 双桨同步划动
-        if (Input.GetKeyDown(syncPaddleKey) && !leftPaddleMoving && !rightPaddleMoving)
-        {
-            bool isPerfect = Input.GetKey(perfectPaddleKey);
-            StartCoroutine(SyncPaddleStroke(isPerfect));
-        }
-    }
-
-    // 处理VR输入
-    private void HandleVRInput()
-    {
-        // 由于VR设备暂时不可用，这部分逻辑保留但不实现具体功能
-        // 未来当VR设备可用时，可以扩展此方法
-        if (showDebugInfo && !forceKeyboardMode)
-            Debug.Log("VR输入处理功能待实现");
-    }
 
     // 获取划桨力度
     private float GetPaddleStrength(bool isPerfect)
@@ -195,7 +342,7 @@ public class PaddleController : MonoBehaviour
     }
 
     // 触发双桨同步事件
-    private void TriggerSyncPaddle(bool isPerfect = false)
+    private void TriggerSyncPaddle(bool isPerfect)
     {
         //Debug.Log("触发双桨同步!");
 
@@ -457,5 +604,18 @@ public class PaddleController : MonoBehaviour
         {
             StartCoroutine(SyncPaddleStroke(isPerfect));
         }
+    }
+
+    void OnDestroy()
+    {
+        // 解除输入绑定
+        if (leftPaddleAction != null)
+            leftPaddleAction.started -= ctx => OnPaddleInput(true);
+
+        if (rightPaddleAction != null)
+            rightPaddleAction.started -= ctx => OnPaddleInput(false);
+
+        if (syncPaddleAction != null)
+            syncPaddleAction.started -= ctx => OnSyncPaddleInput();
     }
 }

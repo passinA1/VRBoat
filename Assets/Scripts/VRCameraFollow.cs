@@ -6,6 +6,7 @@ public class VRCameraFollow : MonoBehaviour
     public float smoothSpeed = 0.125f; // 平滑跟随速度
     public Vector3 offset = new Vector3(0, 2, -2); // 相对目标的偏移量
     public bool lockYRotation = true; // 锁定Y轴旋转，避免晕眩
+    public float fixedHeight = 1f; // 固定的高度值
 
     [Header("摇动设置")]
     public bool transferBoatRocking = true; // 是否传递船只摇动
@@ -22,6 +23,10 @@ public class VRCameraFollow : MonoBehaviour
     public KeyCode resetKey = KeyCode.R; // 重置相机位置键
     public bool showTargetGizmo = true; // 显示目标连线
 
+    [Header("XR组件")]
+    public Transform xrOriginCameraOffset; // 指向XR Origin下的Camera Offset对象
+    private bool isInitialized = false;
+
     private Vector3 initialPosition;
     private Quaternion initialRotation;
     private DragonBoatMovement boatMovement;
@@ -31,6 +36,7 @@ public class VRCameraFollow : MonoBehaviour
     void Start()
     {
         mainCamera = Camera.main;
+
 
         // 检测VR模式
         isVRMode = !forceNonVRMode && CheckVRAvailability();
@@ -208,12 +214,15 @@ public class VRCameraFollow : MonoBehaviour
 
         // 计算XR Origin的目标位置
         Vector3 desiredPosition = target.position + offset;
+        // 强制锁定高度
+        desiredPosition.y = fixedHeight;
+
 
         // 平滑移动XR Origin到目标位置
         Vector3 smoothedPosition = Vector3.Lerp(xrOrigin.position, desiredPosition, smoothSpeed);
         xrOrigin.position = smoothedPosition;
 
-        // 如果不锁定Y轴旋转，可以让XR Origin朝向目标
+        /*// 如果不锁定Y轴旋转，可以让XR Origin朝向目标
         if (!lockYRotation)
         {
             Vector3 lookDirection = target.position - xrOrigin.position;
@@ -224,23 +233,24 @@ public class VRCameraFollow : MonoBehaviour
                 Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
                 xrOrigin.rotation = Quaternion.Slerp(xrOrigin.rotation, targetRotation, smoothSpeed);
             }
-        }
+        }*/
 
         // 传递船只摇动
-        if (transferBoatRocking && boatMovement != null && boatMovement.enableRocking)
+        /*if (transferBoatRocking && boatMovement != null && boatMovement.enableRocking)
         {
             // 获取船只当前的横向倾斜
             float boatRoll = target.rotation.eulerAngles.z;
             if (boatRoll > 180) boatRoll -= 360; // 标准化到-180到180范围
 
             // 计算缓和的摇动效果
-            Vector3 currentRotation = xrOrigin.rotation.eulerAngles;
+            Quaternion currentLocalRotation = xrOriginCameraOffset.localRotation;
+            Vector3 eulerRotation = currentLocalRotation.eulerAngles;
             // 保持当前的x和y旋转，只调整z轴（横向）旋转
-            currentRotation.z = Mathf.Lerp(currentRotation.z, boatRoll * rockingIntensity, smoothSpeed * 0.5f);
+            eulerRotation.z = Mathf.LerpAngle(eulerRotation.z, boatRoll * rockingIntensity, smoothSpeed * 0.5f);
 
             // 应用摇动
-            xrOrigin.rotation = Quaternion.Euler(currentRotation);
-        }
+            xrOriginCameraOffset.localRotation = Quaternion.Euler(eulerRotation);
+        }*/
     }
 
     // 更新标准相机位置
@@ -250,6 +260,9 @@ public class VRCameraFollow : MonoBehaviour
 
         // 计算相机的目标位置
         Vector3 desiredPosition = target.position + offset;
+
+        // 强制锁定高度
+        desiredPosition.y = fixedHeight;
 
         // 平滑移动相机到目标位置
         Vector3 smoothedPosition = Vector3.Lerp(cameraToMove.position, desiredPosition, smoothSpeed);
@@ -278,7 +291,7 @@ public class VRCameraFollow : MonoBehaviour
             }
         }
 
-        // 传递船只摇动
+       /* // 传递船只摇动
         if (transferBoatRocking && boatMovement != null && boatMovement.enableRocking)
         {
             // 获取船只当前的横向倾斜
@@ -292,7 +305,7 @@ public class VRCameraFollow : MonoBehaviour
 
             // 应用摇动
             cameraToMove.rotation = Quaternion.Euler(currentRotation);
-        }
+        }*/
     }
 
     // 重置相机到初始位置

@@ -95,11 +95,11 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        // 处理暂停
+        /*// 处理暂停
         if (Input.GetKeyDown(pauseKey))
         {
             TogglePause();
-        }
+        }*/
 
         // 更新游戏计时器
         if (!isPaused && !isGameCompleted)
